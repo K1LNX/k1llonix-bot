@@ -39,11 +39,11 @@ def main_menu(chat_id):
 def start(message):
     main_menu(message.chat.id)
 
-# --- Раздел с текстом и кнопками ---
+# --- Раздел с текстом и кнопками поддержки ---
 def support_section(chat_id):
-    text = ("Привет, ты попал в раздел поддержки ✅\n\n"
-            "❗️ Если у тебя есть вопросы по покупкам или работе бота , нажми кнопку ниже , чтобы связаться со мной напрямую .\n\n"
-            "⚠️ Старайся описать свою проблему максимально подробно .")
+    text = ("✅ Привет, ты в разделе поддержки.\n\n"
+            "❗️ Если у тебя есть вопросы по покупкам или работе бота, нажми кнопку ниже, чтобы связаться со мной напрямую.\n\n"
+            "⚠️ Старайся описать свою проблему максимально подробно.")
     markup = InlineKeyboardMarkup()
     # кнопка Связаться слева, Назад справа
     markup.row(InlineKeyboardButton("✅Связаться", url="https://t.me/m/_guuyZcWOTUy"),
@@ -55,7 +55,7 @@ def support_section(chat_id):
                          reply_markup=markup)
     last_markup_message_id[chat_id] = msg.message_id
 
-# --- Обработка кнопок ---
+# --- Обработка нажатий кнопок ---
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     chat_id = call.message.chat.id
