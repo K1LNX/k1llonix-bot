@@ -32,7 +32,7 @@ def main_menu(chat_id):
             pass
 
     # Путь к картинке
-    photo_path = "/mnt/data/A_digital_illustration_in_a_winter-themed_gaming_e.png"
+    photo_path = "assets/winter_menu.png"
 
     # Отправляем картинку с кнопками
     msg = bot.send_photo(chat_id, photo=open(photo_path, "rb"),
