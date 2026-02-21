@@ -25,8 +25,9 @@ def main_menu(chat_id):
         try: bot.delete_message(chat_id, last_message[chat_id])
         except: pass
 
+    # Отправка только фото без текста под ним
     msg = bot.send_photo(chat_id, photo=open("assets/winter_menu.png", "rb"),
-                         caption="Привет! Выбери действие ⬇️",
+                         caption="",  # текст удалён
                          reply_markup=markup)
     last_message[chat_id] = msg.message_id
 
