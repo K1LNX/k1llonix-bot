@@ -3,7 +3,7 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from flask import Flask, request
 
-# Получаем токен из переменной окружения
+# Получаем токен из переменной окружения Render
 TOKEN = os.environ.get("BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
@@ -17,11 +17,4 @@ def start(message):
         InlineKeyboardButton("💰 Пополнить", callback_data="pay"),
         InlineKeyboardButton("👤 Профиль", callback_data="profile")
     )
-    bot.send_message(message.chat.id, "Выбери действие:", reply_markup=markup)
-
-# --- Обработка inline кнопок ---
-@bot.callback_query_handler(func=lambda call: True)
-def callback(call):
-    if call.data == "pay":
-        bot.answer_callback_query(call.id)
-        bot.send_message(call.message.chat.id,
+    bot.send_message
