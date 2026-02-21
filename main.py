@@ -45,10 +45,20 @@ def main_menu(chat_id):
 def start(message):
     main_menu(message.chat.id)
 
-# --- Меню раздела с кнопкой Назад ---
-def section_menu(chat_id, text):
+# --- Меню раздела с кнопками ---
+def section_menu(chat_id, text, buttons=None):
     markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("🔙Назад", callback_data="back"))
+    if buttons:
+        # Добавляем кнопки в один ряд: кнопка "Связаться" слева, "Назад" справа
+        if len(buttons) == 1:
+            markup.row(buttons[0], InlineKeyboardButton("🔙Назад", callback_data="back"))
+        else:
+            for btn in buttons:
+                markup.add(btn)
+            markup.add(InlineKeyboardButton("🔙Назад", callback_data="back"))
+    else:
+        markup.add(InlineKeyboardButton("🔙Назад", callback_data="back"))
+
     msg = bot.send_message(chat_id, text, reply_markup=markup)
     last_markup_message_id[chat_id] = msg.message_id
 
@@ -76,7 +86,11 @@ def callback(call):
     elif call.data == "pubg":
         section_menu(chat_id, "😮‍💨PUBG Mobile")
     elif call.data == "support":
-        section_menu(chat_id, "📞Поддержка")
+        text = ("Привет, ты попал в раздел поддержки ✅\n\n"
+                "❗️ Если у тебя есть вопросы по покупкам или работе бота , нажми кнопку ниже , чтобы связаться со мной напрямую .\n\n"
+                "⚠️ Старайся описать свою проблему максимально подробно .")
+        buttons = [InlineKeyboardButton("✅Связаться", url="https://t.me/m/_guuyZcWOTUy")]
+        section_menu(chat_id, text, buttons)
     elif call.data == "back":
         main_menu(chat_id)
 
