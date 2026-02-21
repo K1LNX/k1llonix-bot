@@ -55,6 +55,5 @@ def index():
 
 if __name__ == "__main__":
     bot.remove_webhook()
-    # Вставь сюда URL своего Render сервиса (только сам URL, без слэшей в конце)
-    bot.set_webhook(url=f"https://k1llonix-bot.onrender.com/{TOKEN}")
+    bot.set_webhook(url=f"https://k1llonix-bot.onrender.com{TOKEN}")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
