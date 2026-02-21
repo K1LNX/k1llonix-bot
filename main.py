@@ -9,12 +9,11 @@ bot = telebot.TeleBot(TOKEN)
 
 app = Flask(__name__)
 
-# --- Хранилище ID сообщений с кнопками для обновления ---
+# --- Хранилище ID сообщений с кнопками для удаления ---
 last_markup_message_id = {}
 
-# --- Команда /start ---
-@bot.message_handler(commands=['start'])
-def start(message):
+# --- Главное меню ---
+def main_menu(chat_id):
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
         InlineKeyboardButton("⭐ Telegram ⭐", callback_data="telegram"),
@@ -24,42 +23,51 @@ def start(message):
         InlineKeyboardButton("😮‍💨 PUBG Mobile 😮‍💨", callback_data="pubg"),
         InlineKeyboardButton("📞 Поддержка 📞", callback_data="support")
     )
+    msg = bot.send_message(chat_id, "Привет! Выбери действие ⬇️", reply_markup=markup)
+    last_markup_message_id[chat_id] = msg.message_id
 
-    # Если есть старое сообщение с кнопками — редактируем
-    if message.chat.id in last_markup_message_id:
-        try:
-            bot.edit_message_reply_markup(chat_id=message.chat.id,
-                                          message_id=last_markup_message_id[message.chat.id],
-                                          reply_markup=markup)
-            return
-        except:
-            pass
+# --- Команда /start ---
+@bot.message_handler(commands=['start'])
+def start(message):
+    main_menu(message.chat.id)
 
-    # Иначе отправляем новое сообщение с кнопками
-    msg = bot.send_message(message.chat.id, "Привет! Выбери действие ⬇️", reply_markup=markup)
-    last_markup_message_id[message.chat.id] = msg.message_id
+# --- Создаем меню с кнопкой Назад для каждого раздела ---
+def section_menu(chat_id, text):
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("🔙 Назад", callback_data="back"))
+    msg = bot.send_message(chat_id, text, reply_markup=markup)
+    last_markup_message_id[chat_id] = msg.message_id
 
 # --- Обработка нажатий на инлайн-кнопки ---
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
+    chat_id = call.message.chat.id
+    message_id = call.message.message_id
+
+    # Удаляем старое сообщение
+    try:
+        bot.delete_message(chat_id, message_id)
+    except:
+        pass
+
+    # Обработка каждой кнопки
     if call.data == "telegram":
-        bot.answer_callback_query(call.id)
-        bot.send_message(call.message.chat.id, "⭐ Telegram ⭐")
+        section_menu(chat_id, "⭐ Telegram ⭐")
     elif call.data == "standoff2":
-        bot.answer_callback_query(call.id)
-        bot.send_message(call.message.chat.id, "🍯 Standoff 2 🍯")
+        section_menu(chat_id, "🍯 Standoff 2 🍯")
     elif call.data == "freefire":
-        bot.answer_callback_query(call.id)
-        bot.send_message(call.message.chat.id, "🔥 Free Fire 🔥")
+        section_menu(chat_id, "🔥 Free Fire 🔥")
     elif call.data == "ml":
-        bot.answer_callback_query(call.id)
-        bot.send_message(call.message.chat.id, "🗡 Mobile Legends 🗡")
+        section_menu(chat_id, "🗡 Mobile Legends 🗡")
     elif call.data == "pubg":
-        bot.answer_callback_query(call.id)
-        bot.send_message(call.message.chat.id, "😮‍💨 PUBG Mobile 😮‍💨")
+        section_menu(chat_id, "😮‍💨 PUBG Mobile 😮‍💨")
     elif call.data == "support":
-        bot.answer_callback_query(call.id)
-        bot.send_message(call.message.chat.id, "📞 Поддержка 📞")
+        section_menu(chat_id, "📞 Поддержка 📞")
+    elif call.data == "back":
+        main_menu(chat_id)
+
+    # Подтверждаем нажатие
+    bot.answer_callback_query(call.id)
 
 # --- Webhook для Render ---
 @app.route(f"/{TOKEN}", methods=["POST"])
