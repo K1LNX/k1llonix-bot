@@ -16,14 +16,28 @@ last_markup_message_id = {}
 def main_menu(chat_id):
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
-        InlineKeyboardButton("⭐ Telegram ⭐", callback_data="telegram"),
-        InlineKeyboardButton("🍯 Standoff 2 🍯", callback_data="standoff2"),
-        InlineKeyboardButton("🔥 Free Fire 🔥", callback_data="freefire"),
-        InlineKeyboardButton("🗡 Mobile Legends 🗡", callback_data="ml"),
-        InlineKeyboardButton("😮‍💨 PUBG Mobile 😮‍💨", callback_data="pubg"),
-        InlineKeyboardButton("📞 Поддержка 📞", callback_data="support")
+        InlineKeyboardButton("⭐Telegram", callback_data="telegram"),
+        InlineKeyboardButton("🍯Standoff 2", callback_data="standoff2"),
+        InlineKeyboardButton("🔥Free Fire", callback_data="freefire"),
+        InlineKeyboardButton("🗡Mobile Legends", callback_data="ml"),
+        InlineKeyboardButton("😮‍💨PUBG Mobile", callback_data="pubg"),
+        InlineKeyboardButton("📞Поддержка", callback_data="support")
     )
-    msg = bot.send_message(chat_id, "Привет! Выбери действие ⬇️", reply_markup=markup)
+
+    # Удаляем старое сообщение с кнопками, если есть
+    if chat_id in last_markup_message_id:
+        try:
+            bot.delete_message(chat_id, last_markup_message_id[chat_id])
+        except:
+            pass
+
+    # Путь к картинке
+    photo_path = "/mnt/data/A_digital_illustration_in_a_winter-themed_gaming_e.png"
+
+    # Отправляем картинку с кнопками
+    msg = bot.send_photo(chat_id, photo=open(photo_path, "rb"),
+                         caption="Привет! Выбери действие ⬇️",
+                         reply_markup=markup)
     last_markup_message_id[chat_id] = msg.message_id
 
 # --- Команда /start ---
@@ -31,14 +45,14 @@ def main_menu(chat_id):
 def start(message):
     main_menu(message.chat.id)
 
-# --- Создаем меню с кнопкой Назад для каждого раздела ---
+# --- Меню раздела с кнопкой Назад ---
 def section_menu(chat_id, text):
     markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("🔙 Назад", callback_data="back"))
+    markup.add(InlineKeyboardButton("🔙Назад", callback_data="back"))
     msg = bot.send_message(chat_id, text, reply_markup=markup)
     last_markup_message_id[chat_id] = msg.message_id
 
-# --- Обработка нажатий на инлайн-кнопки ---
+# --- Обработка нажатий на кнопки ---
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     chat_id = call.message.chat.id
@@ -50,23 +64,22 @@ def callback(call):
     except:
         pass
 
-    # Обработка каждой кнопки
+    # Обработка кнопок
     if call.data == "telegram":
-        section_menu(chat_id, "⭐ Telegram ⭐")
+        section_menu(chat_id, "⭐Telegram")
     elif call.data == "standoff2":
-        section_menu(chat_id, "🍯 Standoff 2 🍯")
+        section_menu(chat_id, "🍯Standoff 2")
     elif call.data == "freefire":
-        section_menu(chat_id, "🔥 Free Fire 🔥")
+        section_menu(chat_id, "🔥Free Fire")
     elif call.data == "ml":
-        section_menu(chat_id, "🗡 Mobile Legends 🗡")
+        section_menu(chat_id, "🗡Mobile Legends")
     elif call.data == "pubg":
-        section_menu(chat_id, "😮‍💨 PUBG Mobile 😮‍💨")
+        section_menu(chat_id, "😮‍💨PUBG Mobile")
     elif call.data == "support":
-        section_menu(chat_id, "📞 Поддержка 📞")
+        section_menu(chat_id, "📞Поддержка")
     elif call.data == "back":
         main_menu(chat_id)
 
-    # Подтверждаем нажатие
     bot.answer_callback_query(call.id)
 
 # --- Webhook для Render ---
