@@ -9,15 +9,9 @@ bot = telebot.TeleBot(TOKEN)
 
 app = Flask(__name__)
 
-# --- Хранилище пользователей (простое, в памяти) ---
-users = set()
-
 # --- Команда /start ---
 @bot.message_handler(commands=['start'])
 def start(message):
-    # Добавляем пользователя в счётчик
-    users.add(message.from_user.id)
-
     # Убираем любые старые ReplyKeyboard
     bot.send_message(message.chat.id, "Привет! Выбери действие ⬇️", reply_markup=None)
 
@@ -39,7 +33,7 @@ def callback(call):
         bot.send_message(call.message.chat.id, "💳 Раздел оплаты")
     elif call.data == "profile":
         bot.answer_callback_query(call.id)
-        bot.send_message(call.message.chat.id, f"🆔 Твой ID: {call.from_user.id}\n👥 Всего пользователей: {len(users)}")
+        bot.send_message(call.message.chat.id, f"🆔 Твой ID: {call.from_user.id}")
     elif call.data == "shop":
         bot.answer_callback_query(call.id)
         bot.send_message(call.message.chat.id, "📦 Добро пожаловать в магазин")
@@ -59,11 +53,8 @@ def webhook():
 def index():
     return "Bot is running!"
 
-# --- Настройка webhook через переменную окружения ---
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
-
 if __name__ == "__main__":
     bot.remove_webhook()
-    if WEBHOOK_URL:
-        bot.set_webhook(url=f"{WEBHOOK_URL}/{TOKEN}")
+    # Вставь сюда URL своего Render сервиса (только сам URL, без слэшей в конце)
+    bot.set_webhook(url=f"https://k1llonix-bot.onrender.com/{TOKEN}")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
