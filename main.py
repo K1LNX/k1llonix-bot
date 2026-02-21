@@ -29,7 +29,7 @@ def main_menu(chat_id):
         except:
             pass
 
-    photo_path = "assets/support_menu.png"  # <- сюда нужно положить картинку поддержки
+    photo_path = "assets/winter_menu.png"
     msg = bot.send_photo(chat_id, photo=open(photo_path, "rb"),
                          caption="Привет! Выбери действие ⬇️",
                          reply_markup=markup)
@@ -40,15 +40,19 @@ def start(message):
     main_menu(message.chat.id)
 
 # --- Раздел с текстом и кнопками ---
-def section_menu(chat_id, text, buttons=None):
+def support_section(chat_id):
+    text = ("Привет, ты попал в раздел поддержки ✅\n\n"
+            "❗️ Если у тебя есть вопросы по покупкам или работе бота , нажми кнопку ниже , чтобы связаться со мной напрямую .\n\n"
+            "⚠️ Старайся описать свою проблему максимально подробно .")
     markup = InlineKeyboardMarkup()
-    if buttons:
-        # Ставим кнопку Связаться слева, Назад справа
-        markup.row(buttons[0], InlineKeyboardButton("🔙Назад", callback_data="back"))
-    else:
-        markup.add(InlineKeyboardButton("🔙Назад", callback_data="back"))
+    # кнопка Связаться слева, Назад справа
+    markup.row(InlineKeyboardButton("✅Связаться", url="https://t.me/m/_guuyZcWOTUy"),
+               InlineKeyboardButton("🔙Назад", callback_data="back"))
 
-    msg = bot.send_message(chat_id, text, reply_markup=markup)
+    photo_path = "assets/support_menu.png"
+    msg = bot.send_photo(chat_id, photo=open(photo_path, "rb"),
+                         caption=text,
+                         reply_markup=markup)
     last_markup_message_id[chat_id] = msg.message_id
 
 # --- Обработка кнопок ---
@@ -63,30 +67,17 @@ def callback(call):
         pass
 
     if call.data == "telegram":
-        section_menu(chat_id, "⭐Telegram")
+        bot.send_message(chat_id, "⭐Telegram")
     elif call.data == "standoff2":
-        section_menu(chat_id, "🍯Standoff 2")
+        bot.send_message(chat_id, "🍯Standoff 2")
     elif call.data == "freefire":
-        section_menu(chat_id, "🔥Free Fire")
+        bot.send_message(chat_id, "🔥Free Fire")
     elif call.data == "ml":
-        section_menu(chat_id, "🗡Mobile Legends")
+        bot.send_message(chat_id, "🗡Mobile Legends")
     elif call.data == "pubg":
-        section_menu(chat_id, "😮‍💨PUBG Mobile")
+        bot.send_message(chat_id, "😮‍💨PUBG Mobile")
     elif call.data == "support":
-        text = ("Привет, ты попал в раздел поддержки ✅\n\n"
-                "❗️ Если у тебя есть вопросы по покупкам или работе бота , нажми кнопку ниже , чтобы связаться со мной напрямую .\n\n"
-                "⚠️ Старайся описать свою проблему максимально подробно .")
-        buttons = [InlineKeyboardButton("✅Связаться", url="https://t.me/m/_guuyZcWOTUy")]
-        # отправляем картинку перед текстом
-        photo_path = "assets/support_menu.png"
-        msg = bot.send_photo(chat_id, photo=open(photo_path, "rb"),
-                             caption=text)
-        last_markup_message_id[chat_id] = msg.message_id
-        # добавляем кнопки под картинкой
-        markup = InlineKeyboardMarkup()
-        markup.row(buttons[0], InlineKeyboardButton("🔙Назад", callback_data="back"))
-        bot.send_message(chat_id, text="Выберите действие:", reply_markup=markup)
-
+        support_section(chat_id)
     elif call.data == "back":
         main_menu(chat_id)
 
