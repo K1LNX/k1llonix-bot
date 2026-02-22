@@ -24,7 +24,6 @@ def main_menu(chat_id):
     if chat_id in last_message:
         try: bot.delete_message(chat_id, last_message[chat_id])
         except: pass
-
     msg = bot.send_photo(chat_id, photo=open("assets/winter_menu.png", "rb"),
                          caption="",
                          reply_markup=markup)
@@ -77,27 +76,43 @@ def callback(call):
     except: pass
 
     if call.data == "telegram":
-        # Кастомные кнопки для Telegram
+        # Новый раздел Telegram с 3 кнопками
         markup = InlineKeyboardMarkup(row_width=2)
-        # Звёзды
         markup.add(
-            InlineKeyboardButton("⭐️100🟰130₽", url="https://t.me/m/UFaea8-mOWY6"),
-            InlineKeyboardButton("⭐️250🟰325₽", url="https://t.me/m/H0ugOYhKZGQy"),
-            InlineKeyboardButton("⭐️500🟰650₽", url="https://t.me/m/bIQ0lKCWNzRi"),
-            InlineKeyboardButton("⭐️1.000🟰1.300₽", url="https://t.me/m/m8mDWX3bN2Iy"),
-            InlineKeyboardButton("⭐️2.500🟰3.250₽", url="https://t.me/m/4KkuPRgtOWUy"),
-            InlineKeyboardButton("⭐️5.000🟰6.500₽", url="https://t.me/m/RhA9T-4FY2Fi"),
-            InlineKeyboardButton("⭐️10.000🟰13.000₽", url="https://t.me/m/BUCEaewgZWQy"),
-            InlineKeyboardButton("⭐️20.000🟰26.000₽", url="https://t.me/m/ZYG6py3wNzA6"),
+            InlineKeyboardButton("⭐Telegram Stars", callback_data="stars"),
+            InlineKeyboardButton("👑Premium", callback_data="premium")
         )
-        # Premium пакеты
-        markup.add(
-            InlineKeyboardButton("🎁3месяца🟰1.100₽", url="https://t.me/m/AE7KCdkoZTgy"),
-            InlineKeyboardButton("🎁6месяцев🟰1.450₽", url="https://t.me/m/82ISweV3NDYy"),
-            InlineKeyboardButton("🎁1год🟰2.550₽", url="https://t.me/m/9DWFyVUYODky"),
-            InlineKeyboardButton("🔙Назад", callback_data="back")  # кнопка справа
-        )
+        markup.add(InlineKeyboardButton("🔙Назад", callback_data="back"))
         show_section(chat_id, "assets/telegram_menu.png", custom_markup=markup)
+
+    elif call.data == "stars":
+        # Раздел покупки Stars
+        user_mention = f"@{call.from_user.username}" if call.from_user.username else call.from_user.first_name
+        text = (f"⭐️ Покупка звёзд\n\n"
+                f"🔎 Введите юзернейм пользователя, которому будем дарить звёзды:\n"
+                f"— Пример: {user_mention}")
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("🔙Назад", callback_data="back"))
+        if chat_id in last_message:
+            try: bot.delete_message(chat_id, last_message[chat_id])
+            except: pass
+        msg = bot.send_photo(chat_id,
+                             photo="https://t.me/Kill_Onix/3",
+                             caption=text,
+                             reply_markup=markup)
+        last_message[chat_id] = msg.message_id
+
+    elif call.data == "premium":
+        # Раздел Premium (пока пустой, можно добавить позже)
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("🔙Назад", callback_data="back"))
+        if chat_id in last_message:
+            try: bot.delete_message(chat_id, last_message[chat_id])
+            except: pass
+        msg = bot.send_message(chat_id,
+                               text="👑 Раздел Premium пока в разработке.",
+                               reply_markup=markup)
+        last_message[chat_id] = msg.message_id
 
     elif call.data == "standoff2":
         show_section(chat_id, "assets/standoff2_menu.png", "🍯Standoff 2")
