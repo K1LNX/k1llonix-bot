@@ -8,9 +8,11 @@ bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
 last_message = {}
+user_menu_level = {}  # chat_id -> уровень меню: "main", "telegram", "stars", "premium"
 
 # --- Главное меню ---
 def main_menu(chat_id):
+    user_menu_level[chat_id] = "main"
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
         InlineKeyboardButton("⭐Telegram", callback_data="telegram"),
@@ -20,7 +22,6 @@ def main_menu(chat_id):
         InlineKeyboardButton("😮‍💨PUBG Mobile", callback_data="pubg"),
         InlineKeyboardButton("📞Поддержка", callback_data="support")
     )
-
     if chat_id in last_message:
         try: bot.delete_message(chat_id, last_message[chat_id])
         except: pass
@@ -54,7 +55,6 @@ def show_section(chat_id, photo_name, caption="", custom_markup=None):
         markup.add(InlineKeyboardButton("🔙Назад", callback_data="back"))
     else:
         markup = custom_markup
-
     if chat_id in last_message:
         try: bot.delete_message(chat_id, last_message[chat_id])
         except: pass
@@ -75,8 +75,9 @@ def callback(call):
     try: bot.delete_message(chat_id, call.message.message_id)
     except: pass
 
+    # --- Раздел Telegram ---
     if call.data == "telegram":
-        # Новый раздел Telegram с 3 кнопками
+        user_menu_level[chat_id] = "telegram"
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(
             InlineKeyboardButton("⭐Telegram Stars", callback_data="stars"),
@@ -85,35 +86,32 @@ def callback(call):
         markup.add(InlineKeyboardButton("🔙Назад", callback_data="back"))
         show_section(chat_id, "assets/telegram_menu.png", custom_markup=markup)
 
+    # --- Раздел Stars ---
     elif call.data == "stars":
-        # Раздел покупки Stars
+        user_menu_level[chat_id] = "stars"
         user_mention = f"@{call.from_user.username}" if call.from_user.username else call.from_user.first_name
         text = (f"⭐️ Покупка звёзд\n\n"
                 f"🔎 Введите юзернейм пользователя, которому будем дарить звёзды:\n"
                 f"— Пример: {user_mention}")
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("🔙Назад", callback_data="back"))
-        if chat_id in last_message:
-            try: bot.delete_message(chat_id, last_message[chat_id])
-            except: pass
         msg = bot.send_photo(chat_id,
                              photo="https://t.me/Kill_Onix/3",
                              caption=text,
                              reply_markup=markup)
         last_message[chat_id] = msg.message_id
 
+    # --- Раздел Premium ---
     elif call.data == "premium":
-        # Раздел Premium (пока пустой, можно добавить позже)
+        user_menu_level[chat_id] = "premium"
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("🔙Назад", callback_data="back"))
-        if chat_id in last_message:
-            try: bot.delete_message(chat_id, last_message[chat_id])
-            except: pass
         msg = bot.send_message(chat_id,
                                text="👑 Раздел Premium пока в разработке.",
                                reply_markup=markup)
         last_message[chat_id] = msg.message_id
 
+    # --- Остальные разделы ---
     elif call.data == "standoff2":
         show_section(chat_id, "assets/standoff2_menu.png", "🍯Standoff 2")
     elif call.data == "freefire":
@@ -124,8 +122,17 @@ def callback(call):
         show_section(chat_id, "assets/pubg_menu.png", "😮‍💨PUBG Mobile")
     elif call.data == "support":
         support_section(chat_id)
+
+    # --- Кнопка Назад ---
     elif call.data == "back":
-        main_menu(chat_id)
+        level = user_menu_level.get(chat_id, "main")
+        if level in ["stars", "premium"]:
+            call.data = "telegram"  # вернуться в раздел Telegram
+            callback(call)
+        elif level == "telegram":
+            main_menu(chat_id)
+        else:
+            main_menu(chat_id)
 
     bot.answer_callback_query(call.id)
 
