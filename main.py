@@ -25,9 +25,8 @@ def main_menu(chat_id):
         try: bot.delete_message(chat_id, last_message[chat_id])
         except: pass
 
-    # Отправка только фото без текста под ним
     msg = bot.send_photo(chat_id, photo=open("assets/winter_menu.png", "rb"),
-                         caption="",  # текст удалён
+                         caption="",
                          reply_markup=markup)
     last_message[chat_id] = msg.message_id
 
@@ -50,9 +49,13 @@ def support_section(chat_id):
     last_message[chat_id] = msg.message_id
 
 # --- Разделы с картинками и кнопкой назад ---
-def show_section(chat_id, photo_name, caption):
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("🔙Назад", callback_data="back"))
+def show_section(chat_id, photo_name, caption, custom_markup=None):
+    if not custom_markup:
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("🔙Назад", callback_data="back"))
+    else:
+        markup = custom_markup
+
     if chat_id in last_message:
         try: bot.delete_message(chat_id, last_message[chat_id])
         except: pass
@@ -74,7 +77,26 @@ def callback(call):
     except: pass
 
     if call.data == "telegram":
-        show_section(chat_id, "assets/telegram_menu.png", "⭐Telegram")
+        # Создаём кастомное меню с кнопками цен
+        markup = InlineKeyboardMarkup(row_width=2)
+        # Звёзды
+        markup.add(
+            InlineKeyboardButton("⭐️100🟰130₽", callback_data="star_100"),
+            InlineKeyboardButton("⭐️250🟰325₽", callback_data="star_250"),
+            InlineKeyboardButton("⭐️500🟰650₽", callback_data="star_500"),
+            InlineKeyboardButton("⭐️1.000🟰1.300₽", callback_data="star_1000"),
+            InlineKeyboardButton("⭐️2.500🟰3.250₽", callback_data="star_2500"),
+            InlineKeyboardButton("⭐️5.000🟰6.500₽", callback_data="star_5000"),
+            InlineKeyboardButton("⭐️10.000🟰13.000₽", callback_data="star_10000"),
+            InlineKeyboardButton("⭐️20.000🟰26.000₽", callback_data="star_20000"),
+            # Premium
+            InlineKeyboardButton("🎁3месяца🟰1.100₽", callback_data="premium_3"),
+            InlineKeyboardButton("🎁6месяцев🟰1.450₽", callback_data="premium_6"),
+            InlineKeyboardButton("🎁1год🟰2.550₽", callback_data="premium_12"),
+            InlineKeyboardButton("🔙Назад", callback_data="back")
+        )
+        show_section(chat_id, "assets/telegram_menu.png", "", custom_markup=markup)
+
     elif call.data == "standoff2":
         show_section(chat_id, "assets/standoff2_menu.png", "🍯Standoff 2")
     elif call.data == "freefire":
