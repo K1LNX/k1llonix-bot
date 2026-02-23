@@ -1,6 +1,6 @@
 import os
 import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 from flask import Flask, request
 
 TOKEN = os.environ.get("BOT_TOKEN")
@@ -24,10 +24,20 @@ def main_menu(chat_id):
         InlineKeyboardButton("📞Поддержка", callback_data="support")
     )
 
+    # Если меню уже есть, редактируем его, чтобы не дублировалось
     if chat_id in last_message:
-        try: bot.delete_message(chat_id, last_message[chat_id])
-        except: pass
+        try:
+            bot.edit_message_media(
+                media=InputMediaPhoto(open("assets/winter_menu.png", "rb")),
+                chat_id=chat_id,
+                message_id=last_message[chat_id],
+                reply_markup=markup
+            )
+            return
+        except:
+            pass  # если редактировать не удалось, отправляем новое
 
+    # Отправляем новое меню
     msg = bot.send_photo(chat_id,
                          photo=open("assets/winter_menu.png", "rb"),
                          caption="",
@@ -90,39 +100,39 @@ def process_amount(message):
 
     try:
         amount = int(message.text)
-
-        if amount < 50:
-            bot.send_message(chat_id, "❌ Минимальное количество — 50 звёзд.")
-            return
-
-        if amount > 10000:
-            bot.send_message(chat_id, "❌ Максимум за один заказ — 10.000 звёзд.")
-            return
-
-        total_price = round(amount * PRICE_PER_STAR, 2)
-
-        user_orders[chat_id]["amount"] = amount
-        user_orders[chat_id]["total"] = total_price
-        user_orders[chat_id]["awaiting_amount"] = False
-
-        text = (f"🧾 Подтверждение заказа\n\n"
-                f"👤 Получатель: {user_orders[chat_id]['username']}\n"
-                f"⭐ Количество: {amount} звёзд\n"
-                f"💰 К оплате: {total_price} ₽\n\n"
-                f"━━━━━━━━━━━━━━\n\n"
-                f"⚠️ Проверьте данные перед оплатой.\n"
-                f"После оплаты отмена невозможна.")
-
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("💳 Оплатить", callback_data="pay"))
-        markup.add(InlineKeyboardButton("✏️ Изменить количество", callback_data="buy_self"))
-        markup.add(InlineKeyboardButton("🔙 Отмена", callback_data="back"))
-
-        msg = bot.send_message(chat_id, text=text, reply_markup=markup)
-        last_message[chat_id] = msg.message_id
-
-    except:
+    except ValueError:
         bot.send_message(chat_id, "❌ Введите корректное число.")
+        return
+
+    if amount < 50:
+        bot.send_message(chat_id, "❌ Минимальное количество — 50 звёзд.")
+        return
+
+    if amount > 10000:
+        bot.send_message(chat_id, "❌ Максимум за один заказ — 10.000 звёзд.")
+        return
+
+    total_price = round(amount * PRICE_PER_STAR, 2)
+
+    user_orders[chat_id]["amount"] = amount
+    user_orders[chat_id]["total"] = total_price
+    user_orders[chat_id]["awaiting_amount"] = False
+
+    text = (f"🧾 Подтверждение заказа\n\n"
+            f"👤 Получатель: {user_orders[chat_id]['username']}\n"
+            f"⭐ Количество: {amount} звёзд\n"
+            f"💰 К оплате: {total_price} ₽\n\n"
+            f"━━━━━━━━━━━━━━\n\n"
+            f"⚠️ Проверьте данные перед оплатой.\n"
+            f"После оплаты отмена невозможна.")
+
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("💳 Оплатить", callback_data="pay"))
+    markup.add(InlineKeyboardButton("✏️ Изменить количество", callback_data="buy_self"))
+    markup.add(InlineKeyboardButton("🔙 Отмена", callback_data="back"))
+
+    msg = bot.send_message(chat_id, text=text, reply_markup=markup)
+    last_message[chat_id] = msg.message_id
 
 
 # --- Callback обработка ---
@@ -198,7 +208,14 @@ def callback(call):
         support_section(chat_id)
 
     elif call.data == "back_to_telegram":
-        callback(call)  # перезапуск раздела
+        # безопасное показ меню без рекурсии
+        markup = InlineKeyboardMarkup(row_width=2)
+        markup.add(
+            InlineKeyboardButton("⭐Telegram Stars", callback_data="stars"),
+            InlineKeyboardButton("👑Premium", callback_data="premium")
+        )
+        markup.add(InlineKeyboardButton("🔙Назад", callback_data="back"))
+        show_section(chat_id, "assets/telegram_menu.png", custom_markup=markup)
 
     elif call.data == "back":
         main_menu(chat_id)
