@@ -105,6 +105,14 @@ def process_amount(message):
         user_orders[chat_id]["total"] = total_price  
         user_orders[chat_id]["awaiting_amount"] = False  
   
+        # ---- Удаляем старое сообщение с вводом количества звёзд ----
+        if chat_id in last_message:
+            try:
+                bot.delete_message(chat_id, last_message[chat_id])
+            except:
+                pass
+
+        # ---- Отправляем подтверждение заказа ----
         text = (f"🧾 Подтверждение заказа\n\n"  
                 f"👤 Получатель: {user_orders[chat_id]['username']}\n"  
                 f"⭐ Количество: {amount} звёзд\n"  
