@@ -6,27 +6,29 @@ import threading
 import time
 
 TOKEN = os.environ.get("BOT_TOKEN")
+ADMIN_ID = 8488495908  # Твой Telegram ID для доступа к админ-панели
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
 last_message = {}
 user_state = {}
 order_data = {}
-order_counter = 1  # нумерация заказов
+orders = {}
+order_counter = 1
 COURSE = 1.35  # курс за 1 звезду
-ADMIN_ID = 8488495908  # твой Telegram ID для уведомлений о заказах
 
 # --- Главное меню ---
 def main_menu(chat_id):
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
-        InlineKeyboardButton("⭐Telegram", callback_data="telegram"),
+        InlineKeyboardButton("⭐Telegram Stars", callback_data="stars"),
+        InlineKeyboardButton("👑Premium", callback_data="premium"),
         InlineKeyboardButton("🍯Standoff 2", callback_data="standoff2"),
         InlineKeyboardButton("🔥Free Fire", callback_data="freefire"),
         InlineKeyboardButton("🗡Mobile Legends", callback_data="ml"),
         InlineKeyboardButton("😮‍💨PUBG Mobile", callback_data="pubg"),
-        InlineKeyboardButton("📞Поддержка", callback_data="support"),
     )
+    markup.add(InlineKeyboardButton("📞 Поддержка", callback_data="support"))
     markup.add(InlineKeyboardButton("📦 Мои заказы", callback_data="my_orders"))
 
     if chat_id in last_message:
@@ -39,7 +41,7 @@ def main_menu(chat_id):
                          reply_markup=markup)
     last_message[chat_id] = msg.message_id
 
-# --- Команда /start ---
+# --- /start ---
 @bot.message_handler(commands=['start'])
 def start(message):
     main_menu(message.chat.id)
@@ -49,23 +51,23 @@ def start(message):
 def get_username(message):
     chat_id = message.chat.id
     username = message.text.strip()
-
     if not username.startswith("@") or len(username) < 5:
         bot.send_message(chat_id, "❌ Юзернейм должен начинаться с @\nПопробуйте снова:")
         return
 
     global order_counter
-    order_data[chat_id] = {"username": username, "order_id": order_counter}
+    order_id = order_counter
     order_counter += 1
+
+    order_data[chat_id] = {"username": username, "order_id": order_id, "status": "Ввод количества"}
     user_state[chat_id] = "waiting_amount"
 
     text = (f"⭐️ Покупка звёзд\n\n"
-            f"👤 Получатель: {username}\n\n"
+            f"👤 Получатель: {username}\n"
             f"• Минимум: 50 Звёзд\n"
-            f"• Максимум (за один заказ): 10.000 звёзд\n\n"
+            f"• Максимум (за один заказ): 10.000 звёзд\n"
             f"💱 Курс: {COURSE} ₽ за звезду\n\n"
             f"ℹ️ Введите количество звёзд для покупки —")
-
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("🔙Назад", callback_data="stars"))
     bot.send_message(chat_id, text, reply_markup=markup)
@@ -74,11 +76,9 @@ def get_username(message):
 @bot.message_handler(func=lambda message: user_state.get(message.chat.id) == "waiting_amount")
 def get_amount(message):
     chat_id = message.chat.id
-
     if not message.text.isdigit():
         bot.send_message(chat_id, "❌ Введите число от 50 до 10000")
         return
-
     amount = int(message.text)
     if amount < 50 or amount > 10000:
         bot.send_message(chat_id, "❌ Минимум 50, максимум 10.000")
@@ -88,81 +88,46 @@ def get_amount(message):
     username = data["username"]
     order_id = data["order_id"]
     total = amount * COURSE
-    user_state[chat_id] = "waiting_payment"
 
-    # Скрытый номер карты через Telegram spoiler
-    hidden_card = "||2204120133449765||"
+    order_data[chat_id].update({"amount": amount, "total": total, "status": "Ожидает чек"})
+    if chat_id not in orders:
+        orders[chat_id] = []
+    orders[chat_id].append(order_data[chat_id])
+
+    user_state[chat_id] = None
 
     text = (f"⭐️ Заказ #{order_id}\n\n"
             f"👤 Получатель: {username}\n"
             f"⭐ Количество: {amount}\n"
             f"💰 Сумма к оплате: {total} ₽\n\n"
-            f"Номер карты: {hidden_card}\n"
+            f"Номер карты: 2204120133449765\n"
             f"📎 После оплаты прикрепите скрин/файл о переводе.\n"
             f"❗ Чек обязателен для быстрой обработки заказа.")
-
     markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("✅ Подтвердить оплату", callback_data="confirm_order"))
-    markup.add(InlineKeyboardButton("❌ Отменить заказ", callback_data="cancel_order"))
+    markup.add(InlineKeyboardButton("✅ Оплатил", callback_data=f"paid_{order_id}"))
+    markup.add(InlineKeyboardButton("❌ Отменить", callback_data=f"cancel_{order_id}"))
+    markup.add(InlineKeyboardButton("📦 Мой заказ", callback_data="my_orders"))
     markup.add(InlineKeyboardButton("🔙 Назад", callback_data="stars"))
 
-    msg = bot.send_message(chat_id, text=text, reply_markup=markup)
-    last_message[chat_id] = msg.message_id
+    bot.send_message(chat_id, text=text, reply_markup=markup)
+    threading.Thread(target=reminder_timer, args=(chat_id, order_id), daemon=True).start()
 
-# --- Обработка прикрепленного файла/чека ---
-@bot.message_handler(content_types=['photo', 'document'])
-def receive_payment_file(message):
-    chat_id = message.chat.id
-
-    if user_state.get(chat_id) != "waiting_payment":
-        return  # если пользователь не в состоянии оплаты
-
-    data = order_data[chat_id]
-    order_id = data["order_id"]
-    username = data["username"]
-
-    # отправка чека в админ-чат
-    caption = f"💳 Новый заказ #{order_id}\n👤 Получатель: {username}\nОтправлен файл/скрин оплаты"
-    if message.photo:
-        file_id = message.photo[-1].file_id
-        bot.send_photo(ADMIN_ID, file_id, caption=caption)
-    elif message.document:
-        file_id = message.document.file_id
-        bot.send_document(ADMIN_ID, file_id, caption=caption)
-
-    # сообщение пользователю
-    text_user = (f"✅ Ваш заказ #{order_id} принят и находится в обработке.\n"
-                 f"📎 Ваш чек успешно получен.\n"
-                 f"Если есть вопросы — пишите в поддержку, вам обязательно помогут.")
-
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("📦 Мой заказ", callback_data="my_orders"))
-
-    bot.send_message(chat_id, text=text_user, reply_markup=markup)
-    user_state[chat_id] = None  # сброс состояния
+def reminder_timer(chat_id, order_id):
+    time.sleep(15 * 60)
+    for order in orders.get(chat_id, []):
+        if order["order_id"] == order_id and order["status"] == "Ожидает чек":
+            bot.send_message(chat_id, f"⏳ Ваш заказ #{order_id} ждёт прикрепления чека.\n📝 Пожалуйста, прикрепите файл для ускоренной обработки.")
 
 # --- Обработка кнопок ---
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     chat_id = call.message.chat.id
-    try:
-        bot.delete_message(chat_id, call.message.message_id)
+    user_id = call.from_user.id
+    try: bot.delete_message(chat_id, call.message.message_id)
     except: pass
 
-    if call.data == "telegram":
-        markup = InlineKeyboardMarkup(row_width=2)
-        markup.add(
-            InlineKeyboardButton("⭐Telegram Stars", callback_data="stars"),
-            InlineKeyboardButton("👑Premium", callback_data="premium")
-        )
-        markup.add(InlineKeyboardButton("🔙Назад", callback_data="back"))
-        msg = bot.send_photo(chat_id,
-                             photo=open("assets/telegram_menu.png", "rb"),
-                             caption="",
-                             reply_markup=markup)
-        last_message[chat_id] = msg.message_id
-
-    elif call.data == "stars":
+    # Покупка звезд
+    if call.data == "stars":
         user_state[chat_id] = "waiting_username"
         user_mention = f"@{call.from_user.username}" if call.from_user.username else call.from_user.first_name
         text = (f"⭐️ Покупка звёзд\n\n"
@@ -171,48 +136,120 @@ def callback(call):
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("Купить для себя", callback_data="buy_self"))
         markup.add(InlineKeyboardButton("🔙Назад", callback_data="back_to_telegram"))
-        msg = bot.send_photo(chat_id,
-                             photo="https://t.me/Kill_Onix/3",
-                             caption=text,
-                             reply_markup=markup)
+        msg = bot.send_photo(chat_id, photo="https://t.me/Kill_Onix/3", caption=text, reply_markup=markup)
         last_message[chat_id] = msg.message_id
 
     elif call.data == "buy_self":
         username = f"@{call.from_user.username}" if call.from_user.username else call.from_user.first_name
         global order_counter
-        order_data[chat_id] = {"username": username, "order_id": order_counter}
+        order_id = order_counter
         order_counter += 1
+        order_data[chat_id] = {"username": username, "order_id": order_id, "status": "Ввод количества"}
         user_state[chat_id] = "waiting_amount"
         text = (f"⭐️ Покупка звёзд\n\n"
-                f"👤 Получатель: {username}\n\n"
+                f"👤 Получатель: {username}\n"
                 f"• Минимум: 50 Звёзд\n"
-                f"• Максимум (за один заказ): 10.000 звёзд\n\n"
+                f"• Максимум (за один заказ): 10.000 звёзд\n"
                 f"💱 Курс: {COURSE} ₽ за звезду\n\n"
                 f"ℹ️ Введите количество звёзд для покупки —")
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("🔙Назад", callback_data="stars"))
         bot.send_message(chat_id, text, reply_markup=markup)
 
-    elif call.data == "premium":
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("🔙Назад", callback_data="back_to_telegram"))
-        bot.send_message(chat_id,
-                         "👑 Раздел Premium пока в разработке.",
-                         reply_markup=markup)
+    # Отметка "Оплатил"
+    elif call.data.startswith("paid_"):
+        order_id = int(call.data.split("_")[1])
+        for order in orders.get(chat_id, []):
+            if order["order_id"] == order_id:
+                order["status"] = "В обработке"
+                bot.send_message(chat_id, f"✅ Заказ #{order_id} принят в обработку. После зачисления вы получите уведомление.\nЕсли есть вопросы, пишите в поддержку.")
+
+    # Отмена
+    elif call.data.startswith("cancel_"):
+        order_id = int(call.data.split("_")[1])
+        orders[chat_id] = [o for o in orders.get(chat_id, []) if o["order_id"] != order_id]
+        bot.send_message(chat_id, f"❌ Заказ #{order_id} отменён.")
+
+    # Мои заказы
+    elif call.data == "my_orders":
+        show_orders(chat_id, page=1, admin=False)
+
+    # Постраничка
+    elif call.data.startswith("page_"):
+        _, page = call.data.split("_")
+        show_orders(chat_id, int(page), admin=(user_id==ADMIN_ID))
+
+    # Админ-панель
+    elif call.data.startswith("admin_") and user_id == ADMIN_ID:
+        _, order_user_id, order_id, action = call.data.split("_")
+        order_user_id = int(order_user_id)
+        order_id = int(order_id)
+        for order in orders.get(order_user_id, []):
+            if order["order_id"] == order_id:
+                if action == "processing":
+                    order["status"] = "В обработке"
+                elif action == "credited":
+                    order["status"] = "Зачислено"
+                elif action == "delete":
+                    orders[order_user_id] = [o for o in orders[order_user_id] if o["order_id"] != order_id]
+                bot.send_message(order_user_id, f"ℹ️ Статус вашего заказа #{order_id} изменён на: {order['status']}")
+        show_orders(ADMIN_ID, page=1, admin=True)
 
     elif call.data == "back_to_telegram":
-        user_state[chat_id] = None
         callback_fake = type('', (), {})()
-        callback_fake.data = "telegram"
+        callback_fake.data = "stars"
         callback_fake.message = call.message
         callback(callback_fake)
         return
 
     elif call.data == "back":
-        user_state[chat_id] = None
         main_menu(chat_id)
 
     bot.answer_callback_query(call.id)
+
+# --- Показ заказов (пользователь или админ) ---
+def show_orders(chat_id, page=1, admin=False):
+    user_orders = []
+    if admin:
+        # Все заказы всех пользователей
+        for u_orders in orders.values():
+            user_orders.extend(u_orders)
+    else:
+        user_orders = orders.get(chat_id, [])
+
+    if not user_orders:
+        bot.send_message(chat_id, "📦 Нет заказов.")
+        return
+
+    per_page = 5
+    total_pages = (len(user_orders) + per_page - 1) // per_page
+    start = (page - 1) * per_page
+    end = start + per_page
+    current_orders = user_orders[start:end]
+
+    text = ""
+    for o in current_orders:
+        text += (f"⭐️ Заказ #{o['order_id']}\n"
+                 f"👤 Получатель: {o['username']}\n"
+                 f"⭐ Количество: {o.get('amount','—')}\n"
+                 f"💰 Сумма к оплате: {o.get('total','—')} ₽\n"
+                 f"Статус: {o['status']}\n\n")
+
+    markup = InlineKeyboardMarkup()
+    if page > 1:
+        markup.add(InlineKeyboardButton("⬅️ Назад", callback_data=f"page_{page-1}"))
+    if page < total_pages:
+        markup.add(InlineKeyboardButton("➡️ Далее", callback_data=f"page_{page+1}"))
+    markup.add(InlineKeyboardButton("🔙 Назад", callback_data="back"))
+
+    # Если админ, добавляем кнопки управления заказом
+    if admin:
+        for o in current_orders:
+            markup.add(InlineKeyboardButton(f"⚙️ Заказ #{o['order_id']} В обработке", callback_data=f"admin_{chat_id}_{o['order_id']}_processing"))
+            markup.add(InlineKeyboardButton(f"⚡ Заказ #{o['order_id']} Зачислено", callback_data=f"admin_{chat_id}_{o['order_id']}_credited"))
+            markup.add(InlineKeyboardButton(f"❌ Заказ #{o['order_id']} Удалить", callback_data=f"admin_{chat_id}_{o['order_id']}_delete"))
+
+    bot.send_message(chat_id, text, reply_markup=markup)
 
 # --- Webhook ---
 @app.route(f"/{TOKEN}", methods=["POST"])
